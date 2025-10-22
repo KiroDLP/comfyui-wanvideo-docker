@@ -33,13 +33,13 @@ ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Upgrade pip and install core packages
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --upgrade pip setuptools wheel packaging
+RUN pip install --upgrade pip setuptools wheel packaging && \
+    rm -rf /root/.cache/pip
 
 # Install PyTorch nightly with CUDA 12.8 support (matching reference)
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --pre torch torchvision torchaudio \
-    --index-url https://download.pytorch.org/whl/nightly/cu128
+RUN pip install --pre torch torchvision torchaudio \
+    --index-url https://download.pytorch.org/whl/nightly/cu128 && \
+    rm -rf /root/.cache/pip
 
 # Set CUDA environment variables
 ENV CUDA_HOME=/usr/local/cuda \
@@ -51,12 +51,8 @@ WORKDIR /workspace
 # Clone ComfyUI
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git /workspace/ComfyUI
 
-# Install ComfyUI requirements
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -r /workspace/ComfyUI/requirements.txt
-
-# Install additional Python packages for WanVideo and utilities
-RUN --mount=type=cache,target=/root/.cache/pip \
+# Install ComfyUI requirements and additional packages in one step
+RUN pip install -r /workspace/ComfyUI/requirements.txt && \
     pip install \
     xformers \
     accelerate \
@@ -67,7 +63,8 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     scipy \
     pyyaml \
     jupyterlab \
-    comfy-cli
+    comfy-cli && \
+    rm -rf /root/.cache/pip
 
 # =============================================================================
 # Stage 2: Final - Custom Nodes, Models, Configuration
