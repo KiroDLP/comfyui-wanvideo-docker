@@ -4,7 +4,7 @@
 # =============================================================================
 # Stage 1: Base - CUDA, Python, PyTorch, ComfyUI
 # =============================================================================
-FROM nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04 AS base
+FROM nvidia/cuda:12.1.0-cudnn8-devel-ubuntu22.04 AS base
 
 # Prevent interactive prompts during build
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -46,10 +46,10 @@ RUN python --version
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --upgrade pip setuptools wheel packaging
 
-# Install PyTorch nightly with CUDA 12.8 support
+# Install PyTorch with CUDA 12.1 support
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --pre torch torchvision torchaudio \
-    --index-url https://download.pytorch.org/whl/nightly/cu128
+    pip install torch torchvision torchaudio \
+    --index-url https://download.pytorch.org/whl/cu121
 
 # Set CUDA environment variables
 ENV CUDA_HOME=/usr/local/cuda \

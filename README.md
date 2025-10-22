@@ -4,8 +4,8 @@ Production-ready Docker image for running ComfyUI with WanVideo 2.2 support on R
 
 ## Features
 
-- **GPU Optimized**: CUDA 12.8.1 + cuDNN on Ubuntu 24.04
-- **PyTorch Nightly**: Latest features and performance improvements
+- **GPU Optimized**: CUDA 12.1 + cuDNN8 on Ubuntu 22.04
+- **PyTorch Stable**: Proven stability and performance
 - **WanVideo 2.2 Ready**: All required custom nodes pre-installed
 - **Smart Startup**: Automatic network volume detection and symlink setup
 - **Model Management**: Pre-downloads essential models, supports persistent storage
@@ -30,7 +30,7 @@ Production-ready Docker image for running ComfyUI with WanVideo 2.2 support on R
 - 4xLSDIR upscale model
 
 ### Python Packages
-- PyTorch 2.7.0+ (nightly with CUDA 12.8)
+- PyTorch 2.5.0+ (stable with CUDA 12.1)
 - xformers, accelerate, transformers
 - opencv-python, pillow, numpy, scipy
 - sageattention (Linux optimization)
@@ -337,9 +337,9 @@ The GitHub Actions workflow will automatically build and push the new image.
 
 ## Technical Specifications
 
-- **Base Image**: nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04
-- **Python**: 3.12 in virtual environment
-- **PyTorch**: 2.7.0+ nightly (cu128)
+- **Base Image**: nvidia/cuda:12.1.0-cudnn8-devel-ubuntu22.04
+- **Python**: 3.10+ in virtual environment
+- **PyTorch**: 2.5.0+ stable (cu121)
 - **ComfyUI**: Latest from official repo
 - **Image Size**: ~12-15GB (uncompressed)
 - **Startup Time**: 30-60 seconds
