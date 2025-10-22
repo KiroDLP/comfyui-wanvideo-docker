@@ -13,14 +13,15 @@ ENV DEBIAN_FRONTEND=noninteractive \
     MAKEFLAGS="-j$(nproc)"
 
 # Install system dependencies
-RUN --mount=type=cache,target=/var/cache/apt \
-    apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     python3.12 \
     python3.12-venv \
+    python3.12-dev \
     python3-pip \
     git \
     wget \
     curl \
+    ca-certificates \
     ffmpeg \
     libgl1-mesa-glx \
     libglib2.0-0 \
@@ -30,6 +31,7 @@ RUN --mount=type=cache,target=/var/cache/apt \
     libgomp1 \
     build-essential \
     aria2 \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Create and activate virtual environment
