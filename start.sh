@@ -38,6 +38,53 @@ download_from_civitai() {
         --output "$output_path"
 }
 
+# Function to download WanVideo 2.2 complete models (transformers + text encoders + VAE)
+download_wanvideo_22_complete() {
+    echo ""
+    echo "📦 Downloading WanVideo 2.2 Complete Package..."
+    local models_dir="/runpod-volume/models/diffusion_models"
+    local text_encoders_dir="/runpod-volume/models/text_encoders"
+    local vae_dir="/runpod-volume/models/vae"
+    mkdir -p "$models_dir" "$text_encoders_dir" "$vae_dir"
+
+    # WanVideo 2.2 Transformer (main model)
+    download_from_hf \
+        "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/wanvideo_v2_2.safetensors" \
+        "$models_dir/wanvideo_v2_2.safetensors"
+
+    # Text Encoder - T5-XXL (required)
+    download_from_hf \
+        "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/t5-v1_1-xxl-encoder-bf16.safetensors" \
+        "$text_encoders_dir/t5-v1_1-xxl-encoder-bf16.safetensors"
+
+    # Text Encoder - CLIP ViT-L
+    download_from_hf \
+        "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/clip-vit-large-patch14.safetensors" \
+        "$text_encoders_dir/clip-vit-large-patch14.safetensors"
+
+    # VAE
+    download_from_hf \
+        "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/wanvideo_vae.safetensors" \
+        "$vae_dir/wanvideo_vae.safetensors"
+
+    echo "✓ WanVideo 2.2 complete package downloaded"
+}
+
+# Function to download WanAnimate models
+download_wananimate_models() {
+    echo ""
+    echo "📦 Downloading WanAnimate Models..."
+    local models_dir="/runpod-volume/models/diffusion_models"
+    mkdir -p "$models_dir"
+
+    # WanAnimate transformer
+    download_from_hf \
+        "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/wananimate.safetensors" \
+        "$models_dir/wananimate.safetensors"
+
+    echo "✓ WanAnimate models download complete"
+}
+
 # Function to download WanVideo 480p native models
 download_480p_models() {
     echo ""
@@ -233,6 +280,14 @@ show_environment() {
 setup_model_symlinks
 
 # Download models based on environment variables
+if [ "$download_wanvideo_22_complete" = "true" ]; then
+    download_wanvideo_22_complete
+fi
+
+if [ "$download_wananimate" = "true" ]; then
+    download_wananimate_models
+fi
+
 if [ "$download_480p_native_models" = "true" ]; then
     download_480p_models
 fi

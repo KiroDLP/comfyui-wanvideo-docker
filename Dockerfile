@@ -90,8 +90,8 @@ RUN mkdir -p /workspace/models/diffusion_models \
 # Install custom nodes for WanVideo 2.2
 WORKDIR /workspace/ComfyUI/custom_nodes
 
-# Core WanVideo nodes
-RUN git clone https://github.com/logtd/ComfyUI-WanVideoWrapper.git && \
+# Core WanVideo nodes (using kijai's official wrapper)
+RUN git clone https://github.com/kijai/ComfyUI-WanVideoWrapper.git && \
     git clone https://github.com/logtd/ComfyUI-WanAnimatePreprocess.git
 
 # Video and image processing nodes
