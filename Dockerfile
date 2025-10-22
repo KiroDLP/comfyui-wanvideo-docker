@@ -14,9 +14,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3.12 \
-    python3.12-venv \
-    python3.12-dev \
+    python3 \
+    python3-venv \
+    python3-dev \
     python3-pip \
     git \
     wget \
@@ -36,8 +36,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Create and activate virtual environment
 ENV VIRTUAL_ENV=/opt/venv
-RUN python3.12 -m venv $VIRTUAL_ENV
+RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+# Verify Python version
+RUN python --version
 
 # Upgrade pip and install core packages
 RUN --mount=type=cache,target=/root/.cache/pip \
