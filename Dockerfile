@@ -4,52 +4,42 @@
 # =============================================================================
 # Stage 1: Base - CUDA, Python, PyTorch, ComfyUI
 # =============================================================================
-FROM nvidia/cuda:12.1.0-cudnn8-devel-ubuntu22.04 AS base
+FROM nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04 AS base
 
 # Prevent interactive prompts during build
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    MAKEFLAGS="-j$(nproc)"
+    PIP_PREFER_BINARY=1 \
+    CMAKE_BUILD_PARALLEL_LEVEL=8
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 \
-    python3-venv \
-    python3-dev \
-    python3-pip \
-    git \
-    wget \
-    curl \
-    ca-certificates \
-    ffmpeg \
-    libgl1-mesa-glx \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
-    libgomp1 \
-    build-essential \
-    aria2 \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+# Install system dependencies and setup Python (matching reference implementation)
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        python3.12 python3.12-venv python3.12-dev \
+        python3-pip \
+        curl ffmpeg git aria2 git-lfs wget \
+        libgl1 libglib2.0-0 build-essential && \
+    \
+    ln -sf /usr/bin/python3.12 /usr/bin/python && \
+    ln -sf /usr/bin/pip3 /usr/bin/pip && \
+    \
+    python3.12 -m venv /opt/venv && \
+    \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Create and activate virtual environment
+# Activate virtual environment
 ENV VIRTUAL_ENV=/opt/venv
-RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-
-# Verify Python version
-RUN python --version
 
 # Upgrade pip and install core packages
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --upgrade pip setuptools wheel packaging
 
-# Install PyTorch with CUDA 12.1 support
+# Install PyTorch nightly with CUDA 12.8 support (matching reference)
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install torch torchvision torchaudio \
-    --index-url https://download.pytorch.org/whl/cu121
+    pip install --pre torch torchvision torchaudio \
+    --index-url https://download.pytorch.org/whl/nightly/cu128
 
 # Set CUDA environment variables
 ENV CUDA_HOME=/usr/local/cuda \
