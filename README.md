@@ -159,6 +159,36 @@ docker run --gpus all \
   ghcr.io/YOUR_USERNAME/comfyui-wanvideo-docker:v3
 ```
 
+### Selective Model Downloads (V3)
+
+**Download only core models (minimal setup)**:
+```bash
+docker run --gpus all -p 8188:8188 \
+  -v /path/to/models:/workspace/ComfyUI/models \
+  -e DOWNLOAD_WANVIDEO_COMPLETE=false \
+  -e DOWNLOAD_DIFFUSION_MODELS=true \
+  -e DOWNLOAD_TEXT_ENCODERS=true \
+  -e DOWNLOAD_VAE=true \
+  ghcr.io/YOUR_USERNAME/comfyui-wanvideo-docker:v3
+```
+
+**Skip LoRAs and detection models**:
+```bash
+docker run --gpus all -p 8188:8188 \
+  -v /path/to/models:/workspace/ComfyUI/models \
+  -e DOWNLOAD_LORAS=false \
+  -e DOWNLOAD_DETECTION_MODELS=false \
+  ghcr.io/YOUR_USERNAME/comfyui-wanvideo-docker:v3
+```
+
+**Download everything (default behavior)**:
+```bash
+docker run --gpus all -p 8188:8188 \
+  -v /path/to/models:/workspace/ComfyUI/models \
+  -e DOWNLOAD_WANVIDEO_COMPLETE=true \
+  ghcr.io/YOUR_USERNAME/comfyui-wanvideo-docker:v3
+```
+
 ## Deploying to RunPod
 
 ### Step 1: Push to GitHub Container Registry (GHCR)
@@ -209,10 +239,22 @@ After pushing, make your package public:
    - **Expose HTTP Ports**: `8188` (ComfyUI), `8888` (JupyterLab - optional)
    - **Expose TCP Ports**: Leave empty
 
-3. Environment Variables (V3 - Optional):
+3. Environment Variables (V3 - Configurable Model Downloads):
    ```
-   ENABLE_JUPYTER=false
+   # Download Control (all default to true)
+   DOWNLOAD_WANVIDEO_COMPLETE=true      # Master switch - enables all downloads
+   DOWNLOAD_DETECTION_MODELS=true       # ViTPose + YOLO (~1.2GB)
+   DOWNLOAD_DIFFUSION_MODELS=true       # WanVideo models (~17GB)
+   DOWNLOAD_LORAS=true                  # Enhancement LoRAs (~5GB)
+   DOWNLOAD_TEXT_ENCODERS=true          # UMT5-XXL (~3GB)
+   DOWNLOAD_VAE=true                    # VAE decoders (~1GB)
+   DOWNLOAD_CLIP_VISION=true            # CLIP models (~1GB)
+
+   # Optional features
+   ENABLE_JUPYTER=false                 # JupyterLab on port 8888
    ```
+
+   **Note**: Setting `DOWNLOAD_WANVIDEO_COMPLETE=true` (default) enables all model downloads. Set individual flags to `false` to skip specific model types.
 
 4. Docker Command: Leave empty (uses /start.sh from image)
 
