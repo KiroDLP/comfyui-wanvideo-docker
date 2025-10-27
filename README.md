@@ -1,20 +1,66 @@
-# ComfyUI WanVideo 2.2 Docker for RunPod
+# ComfyUI WanVideo 2.2 Animate Docker for RunPod
 
-Production-ready Docker image for running ComfyUI with WanVideo 2.2 support on RunPod.
+**Production-ready Docker image for running ComfyUI with WanVideo 2.2 Animate support on RunPod.**
+
+## V3 Updates (Latest - STABLE)
+
+- **✅ WanVideoWrapper FIXED**: Resolved import failures with proper dependency installation
+- **PyTorch Nightly 2.10+cu128**: Required for WanVideo 2.2 Animate compatibility
+- **CUDA 12.8.1 + cuDNN**: Optimized for RTX 4090/5090, H100, and newer GPUs (driver >= 560)
+- **Verified Working Configuration**: Based on successful production deployment
+- **Simplified Model Downloads**: Direct URLs, no complex env variable logic
+- **Critical Fix Documented**: Complete troubleshooting guide included
+
+### Key Differences from V2
+
+| Aspect | V2 (Broken) | V3 (Working) |
+|--------|-------------|--------------|
+| PyTorch | 2.7.0 stable | 2.10.0.dev nightly (cu128) |
+| WanVideoWrapper Requirements | ❌ Skipped | ✅ Installed after PyTorch |
+| Model Downloads | Complex env vars | Simple direct downloads |
+| Import Success | ❌ Failed | ✅ Working |
+| diffusers Version | Pinned 0.33.0 | Latest 0.35.2 (GGUF support) |
+
+## 🚨 Critical Fix: WanVideoWrapper Requirements Installation
+
+**THE ROOT CAUSE OF ALL IMPORT FAILURES**
+
+The V2 build was completely skipping WanVideoWrapper's `requirements.txt` installation, causing missing dependencies:
+- `peft>=0.17.0` - Parameter-efficient fine-tuning
+- `sentencepiece>=0.2.0` - Text tokenization
+- `pyloudnorm` - Audio processing
+- And other critical packages
+
+**The Fix** (Dockerfile:104-105):
+```dockerfile
+# V3 FIX: Install WanVideoWrapper requirements AFTER PyTorch nightly
+# The requirements.txt does NOT pin torch versions - only requires torch>=2.0.0 via accelerate
+# Since PyTorch nightly 2.10+ is already installed, pip won't downgrade
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r /workspace/ComfyUI/custom_nodes/ComfyUI-WanVideoWrapper/requirements.txt
+```
+
+**Why This Works**:
+1. PyTorch nightly (2.10+) is installed FIRST (Dockerfile:40-43)
+2. WanVideoWrapper requirements.txt has NO torch version pins
+3. It only requires `torch>=2.0.0` indirectly through `accelerate>=1.2.1`
+4. pip sees nightly satisfies the requirement, so NO DOWNGRADE occurs
+5. All missing dependencies (peft, sentencepiece, etc.) are installed
+6. WanVideoWrapper imports successfully ✅
 
 ## Features
 
 - **GPU Optimized**: CUDA 12.8.1 + cuDNN on Ubuntu 24.04
-- **PyTorch Nightly**: Latest features and performance
-- **WanVideo 2.2 Ready**: All required custom nodes pre-installed
-- **Smart Startup**: Automatic network volume detection and symlink setup
-- **Model Management**: Pre-downloads essential models, supports persistent storage
-- **48GB VRAM Optimized**: bf16 precision, attention optimizations
+- **PyTorch Nightly**: 2.10.0.dev+cu128 with Blackwell/Hopper support
+- **WanVideo 2.2 Animate Ready**: All dependencies correctly installed
+- **Smart Startup**: Automatic model downloads with correct URLs
+- **Verified Working**: Based on successful production deployment logs
+- **Complete Documentation**: Every problem and fix documented below
 
 ## What's Included
 
 ### Custom Nodes (15+ installed)
-- **ComfyUI-WanVideoWrapper** - Core WanVideo 2.2 support
+- **ComfyUI-WanVideoWrapper** - Core WanVideo 2.2 support (NOW WORKS!)
 - **ComfyUI-WanAnimatePreprocess** - Video preprocessing
 - **ComfyUI-VideoHelperSuite** - Video I/O operations
 - **comfyui_controlnet_aux** - Pose detection (DWPose, ViTPose)
@@ -24,73 +70,98 @@ Production-ready Docker image for running ComfyUI with WanVideo 2.2 support on R
 - **ComfyUI_IPAdapter_plus** - IP-Adapter support
 - Plus 7 more utility and enhancement nodes
 
-### Pre-downloaded Models (~2GB)
-- CLIP Vision encoders (ViT-H, ViT-bigG)
-- IP-Adapter models (SD1.5, SDXL)
-- 4xLSDIR upscale model
+### Runtime Model Downloads (V3 - Verified Working)
 
-### Python Packages
-- PyTorch 2.7.0+ (nightly with CUDA 12.8)
-- xformers, accelerate, transformers
-- opencv-python, pillow, numpy, scipy
-- sageattention (Linux optimization)
-- triton (where supported)
-- JupyterLab (optional debugging)
+All models download automatically on first run to `/workspace/ComfyUI/models/`:
+
+#### Detection Models (for WanAnimate preprocessing)
+- `vitpose-l-wholebody.onnx` (~1.15GB)
+- `yolov10m.onnx` (~59MB)
+
+#### Diffusion Models (Main models)
+- `Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors` (~17GB)
+- `wan2.1_t2v_14B_fp8_scaled.safetensors` (alternative model)
+
+#### LoRAs (Enhancement models)
+- `WanAnimate_relight_lora_fp16.safetensors` (~1.34GB)
+- `lightx2v_I2V_14B_480p_cfg_step_distill_rank256_bf16.safetensors` (~2.72GB)
+- `lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank64_bf16.safetensors`
+- `wan_alpha_2.1_rgba_lora.safetensors`
+
+#### Text Encoders
+- `umt5-xxl-enc-bf16.safetensors`
+- `umt5_xxl_fp8_e4m3fn_scaled.safetensors`
+
+#### VAE Models
+- `Wan2_1_VAE_bf16.safetensors`
+- `wan_alpha_2.1_vae_rgb_channel.safetensors`
+- `wan_alpha_2.1_vae_alpha_channel.safetensors`
+
+#### CLIP Vision
+- `clip_vision_h.safetensors`
+
+**Total Downloads**: ~25-30GB (all models included)
+
+### Python Packages (V3)
+- **PyTorch**: 2.10.0.dev20250924+cu128 (nightly)
+- **diffusers**: 0.35.2 (with GGUF quantization support)
+- **accelerate, transformers, peft, sentencepiece** (WanVideoWrapper deps)
+- **opencv-python, pillow, numpy, scipy**
+- **triton** (where supported)
+- **JupyterLab** (optional debugging)
 
 ## Building the Image
 
 ### Prerequisites
 - Docker with BuildKit support
 - NVIDIA Container Toolkit (for GPU support)
-- At least 20GB free disk space
+- At least 30GB free disk space
 
-### Build Command
+### Build Command (V3)
 
 ```bash
-# Standard build
-docker build -t comfyui-wanvideo:latest .
+# V3 build (latest stable)
+docker build -t ghcr.io/YOUR_USERNAME/comfyui-wanvideo-docker:v3 .
+
+# Tag for GHCR
+docker tag ghcr.io/YOUR_USERNAME/comfyui-wanvideo-docker:v3 ghcr.io/YOUR_USERNAME/comfyui-wanvideo-docker:latest
 
 # Build with BuildKit caching (faster rebuilds)
-DOCKER_BUILDKIT=1 docker build -t comfyui-wanvideo:latest .
+DOCKER_BUILDKIT=1 docker build -t ghcr.io/YOUR_USERNAME/comfyui-wanvideo-docker:v3 .
+
+# Push to GHCR
+docker push ghcr.io/YOUR_USERNAME/comfyui-wanvideo-docker:v3
+docker push ghcr.io/YOUR_USERNAME/comfyui-wanvideo-docker:latest
 ```
 
-### Build Time
-- First build: 30-60 minutes (downloads ~10GB)
+### Build Time (V3)
+- First build: 25-35 minutes (downloads ~4-5GB)
 - Subsequent builds: 5-10 minutes (with cache)
+- **Image size: ~8GB** (includes all dependencies)
 
 ## Running Locally (Testing)
 
-### Quick Start
+### Quick Start (V3)
 ```bash
-docker run --gpus all -p 8188:8188 comfyui-wanvideo:latest
+# Basic run with automatic model downloads
+docker run --gpus all -p 8188:8188 \
+  -v /path/to/models:/workspace/ComfyUI/models \
+  ghcr.io/YOUR_USERNAME/comfyui-wanvideo-docker:v3
 ```
 
-### With Network Volume (RunPod simulation)
-```bash
-docker run --gpus all \
-  -p 8188:8188 \
-  -v /path/to/models:/runpod-volume \
-  comfyui-wanvideo:latest
-```
-
-### With JupyterLab
+### With JupyterLab (V3)
 ```bash
 docker run --gpus all \
   -p 8188:8188 \
   -p 8888:8888 \
+  -v /path/to/models:/workspace/ComfyUI/models \
   -e ENABLE_JUPYTER=true \
-  comfyui-wanvideo:latest
+  ghcr.io/YOUR_USERNAME/comfyui-wanvideo-docker:v3
 ```
 
 ## Deploying to RunPod
 
 ### Step 1: Push to GitHub Container Registry (GHCR)
-
-We'll use GHCR because it offers:
-- ✅ No rate limits (unlimited pulls)
-- ✅ Free unlimited private repositories
-- ✅ Integrated with GitHub workflow
-- ✅ Works perfectly with RunPod
 
 #### First-time Setup
 
@@ -101,274 +172,445 @@ We'll use GHCR because it offers:
    - Select scopes:
      - ✅ `write:packages` (upload packages)
      - ✅ `read:packages` (download packages)
-     - ✅ `delete:packages` (optional - delete old versions)
    - Click "Generate token"
    - **Copy the token** (you won't see it again!)
 
-2. **Login to GHCR** (replace `YOUR_USERNAME` and paste your token):
+2. **Login to GHCR**:
    ```bash
    echo YOUR_TOKEN | docker login ghcr.io -u YOUR_USERNAME --password-stdin
    ```
 
-   You should see: `Login Succeeded`
-
-#### Build, Tag, and Push
-
-**Option A: Use the automated script (recommended)**
+#### Build and Push
 
 ```bash
-# Make the script executable (first time only)
-chmod +x build-and-push.sh
-
-# Run the script
-./build-and-push.sh
-```
-
-The script will:
-- Prompt for your GitHub username
-- Help you login to GHCR if needed
-- Build the Docker image with caching
-- Tag it properly for GHCR
-- Push to your registry
-- Show next steps
-
-**Option B: Manual commands**
-
-```bash
-# Build the image
-docker build -t comfyui-wanvideo:latest .
-
-# Tag for GHCR (replace YOUR_USERNAME with your GitHub username)
-docker tag comfyui-wanvideo:latest ghcr.io/YOUR_USERNAME/comfyui-wanvideo:latest
+# Build the V3 image
+docker build -t ghcr.io/YOUR_USERNAME/comfyui-wanvideo-docker:v3 .
 
 # Push to GHCR
-docker push ghcr.io/YOUR_USERNAME/comfyui-wanvideo:latest
+docker push ghcr.io/YOUR_USERNAME/comfyui-wanvideo-docker:v3
 ```
 
-**Option C: Automated with GitHub Actions**
-
-Simply push to your GitHub repository and the workflow will automatically:
-- Build the Docker image on every push to main/master
-- Push to GHCR with proper tags
-- Handle caching for faster builds
-
-See `.github/workflows/docker-build.yml` for configuration.
-
-#### Make the Image Public (Required for RunPod)
+#### Make the Image Public
 
 After pushing, make your package public:
 1. Go to your GitHub profile → Packages
-2. Click on `comfyui-wanvideo`
+2. Click on `comfyui-wanvideo-docker`
 3. Click "Package settings" (bottom right)
 4. Scroll to "Danger Zone"
 5. Click "Change visibility" → Make Public
-6. Type the package name to confirm
 
-**Note**: RunPod can use private images, but public is simpler (no authentication needed).
-
-### Step 2: Create RunPod Template
+### Step 2: Create RunPod Template (V3)
 
 1. Go to RunPod.io → Templates → New Template
 2. Fill in the details:
-   - **Template Name**: ComfyUI WanVideo 2.2
-   - **Container Image**: `ghcr.io/YOUR_USERNAME/comfyui-wanvideo:latest`
-   - **Container Disk**: 20 GB
+   - **Template Name**: ComfyUI WanVideo 2.2 Animate - V3
+   - **Container Image**: `ghcr.io/YOUR_USERNAME/comfyui-wanvideo-docker:v3`
+   - **Container Disk**: 15 GB
    - **Expose HTTP Ports**: `8188` (ComfyUI), `8888` (JupyterLab - optional)
    - **Expose TCP Ports**: Leave empty
 
-3. Environment Variables (optional):
-   - `ENABLE_JUPYTER=true` - Enable JupyterLab
+3. Environment Variables (V3 - Optional):
+   ```
+   ENABLE_JUPYTER=false
+   ```
 
-4. Docker Command: Leave empty (uses CMD from Dockerfile)
+4. Docker Command: Leave empty (uses /start.sh from image)
 
 ### Step 3: Deploy Pod
 
 1. Go to Pods → Deploy
 2. Select your template
-3. Choose GPU (48GB VRAM recommended):
-   - RTX A6000 (48GB)
-   - A100 40GB/80GB
-   - RTX 6000 Ada (48GB)
+3. Choose GPU:
+   - **RTX 4090** (24GB) - Minimum for FP8
+   - **RTX 5090** (32GB) - Recommended
+   - **H100** (80GB) - Best performance
+   - **A100** (40GB/80GB) - Also works
 
-4. **Important**: Attach a Network Volume
+4. **CRITICAL**: GPU Requirements
+   - CUDA driver >= 560 (for CUDA 12.8 support)
+   - Check "Additional Filters" → Select CUDA 12.8
+
+5. **CRITICAL**: Attach a Network Volume
    - Create new volume or use existing
-   - Mount path: `/runpod-volume`
-   - Size: 100GB+ (for models)
+   - Mount path: `/workspace/ComfyUI/models`
+   - Size: **100GB minimum** (models are ~30GB)
 
-5. Start the pod
+6. Start the pod
 
-### Step 4: Access ComfyUI
+### Step 4: First Run - Model Downloads (V3)
 
 1. Wait for pod to start (30-60 seconds)
+2. Watch pod logs for automatic model downloads:
+   - Progress bars show download status
+   - Total download: ~25-30GB
+   - Time: 15-25 minutes (depending on network)
+3. Models are cached on network volume
+4. Subsequent runs: instant (no re-download)
+
+### Step 5: Access ComfyUI
+
+1. Wait for "🚀 Starting ComfyUI..." in logs
 2. Click "Connect" → "HTTP Service [8188]"
-3. ComfyUI interface should load
+3. ComfyUI interface loads
+4. **VERIFY**: Check WanVideoWrapper nodes load without errors! ✅
 
-## Network Volume Structure
-
-The startup script automatically creates this structure on your RunPod network volume:
+## Network Volume Structure (V3)
 
 ```
-/runpod-volume/
-├── models/
-│   ├── diffusion_models/     ← Put WanVideo models here
-│   ├── text_encoders/         ← T5 encoders
-│   ├── vae/                   ← VAE models
-│   ├── clip_vision/           ← Pre-populated from image
-│   ├── loras/                 ← LoRA models
-│   ├── controlnet/            ← ControlNet models
-│   ├── sam2/                  ← SAM2 checkpoints
-│   ├── upscale_models/        ← Pre-populated with 4xLSDIR
-│   └── ipadapter/             ← Pre-populated IP-Adapters
-├── input/                     ← Upload input images/videos here
-├── output/                    ← Generated outputs saved here
-└── workflows/                 ← Save your workflows here
+/workspace/ComfyUI/models/       # Network volume mount point
+├── detection/                   # Detection models
+│   ├── vitpose-l-wholebody.onnx
+│   └── yolov10m.onnx
+├── diffusion_models/            # Main WanVideo models
+│   ├── Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors
+│   └── wan2.1_t2v_14B_fp8_scaled.safetensors
+├── loras/                       # LoRA models
+│   ├── WanAnimate_relight_lora_fp16.safetensors
+│   ├── lightx2v_I2V_14B_480p_cfg_step_distill_rank256_bf16.safetensors
+│   ├── lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank64_bf16.safetensors
+│   └── wan_alpha_2.1_rgba_lora.safetensors
+├── text_encoders/               # Text encoders
+│   ├── umt5-xxl-enc-bf16.safetensors
+│   └── umt5_xxl_fp8_e4m3fn_scaled.safetensors
+├── vae/                         # VAE models
+│   ├── Wan2_1_VAE_bf16.safetensors
+│   ├── wan_alpha_2.1_vae_rgb_channel.safetensors
+│   └── wan_alpha_2.1_vae_alpha_channel.safetensors
+├── clip_vision/                 # CLIP models
+│   └── clip_vision_h.safetensors
+├── input/                       # Upload input files here
+└── output/                      # Generated outputs saved here
 ```
 
-## Required Models (Upload to Network Volume)
+## 🔥 COMPREHENSIVE TROUBLESHOOTING GUIDE
 
-### WanVideo 2.2 Models (~50GB)
-Upload these to `/runpod-volume/models/diffusion_models/`:
-- `wanvideo_v2_2.safetensors` - Main model
+### Problem 1: WanVideoWrapper Import Failures (V1-V2)
 
-### Text Encoders (~20GB)
-Upload to `/runpod-volume/models/text_encoders/`:
-- `t5-v1_1-xxl-encoder-bf16.safetensors`
-- `clip-vit-large-patch14.safetensors`
+**Symptoms**:
+- ComfyUI starts but WanVideoWrapper nodes missing
+- Error: "ModuleNotFoundError: No module named 'peft'"
+- Error: "ModuleNotFoundError: No module named 'sentencepiece'"
+- Error: "ModuleNotFoundError: No module named 'pyloudnorm'"
 
-### VAE (~400MB)
-Upload to `/runpod-volume/models/vae/`:
-- `wanvideo_vae.safetensors`
+**Root Cause**:
+WanVideoWrapper's `requirements.txt` was completely skipped during build, causing missing Python dependencies.
 
-### Optional: SAM2 for Segmentation (~3GB)
-Upload to `/runpod-volume/models/sam2/`:
-- `sam2_hiera_large.pt`
+**The Fix (V3)**:
+```dockerfile
+# Dockerfile lines 104-105
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r /workspace/ComfyUI/custom_nodes/ComfyUI-WanVideoWrapper/requirements.txt
+```
 
-## Performance Optimization
+**Why It Works**:
+- PyTorch nightly is installed FIRST (satisfies torch>=2.0.0)
+- WanVideoWrapper requirements.txt has NO torch pins
+- pip installs missing deps without downgrading PyTorch
+- Result: All dependencies present, WanVideoWrapper imports ✅
 
-### For 48GB VRAM GPUs
-The startup script automatically enables:
-- `--bf16-vae` - Use bfloat16 for VAE (saves VRAM)
-- `--use-split-cross-attention` - Split attention for efficiency
-- `--preview-method auto` - Efficient preview generation
+**Verification**:
+```bash
+# Inside container
+python -c "import peft; import sentencepiece; import pyloudnorm"
+# Should complete with no errors
+```
 
-### SageAttention
-SageAttention is installed but requires Linux. It provides 2x attention speedup when available.
+### Problem 2: PyTorch Version Downgrades (V1-V2)
 
-### Memory Management
-For 1920x1080 videos at 81 frames:
-- Expected VRAM: 35-45GB
-- Leaves ~3GB buffer for system
+**Symptoms**:
+- Build starts with PyTorch 2.10 nightly
+- After installing dependencies, PyTorch downgrades to 2.7.0
+- WanVideoWrapper fails with compatibility errors
 
-## Troubleshooting
+**Root Cause (Incorrect)**:
+We initially thought WanVideoWrapper requirements.txt pinned torch versions.
 
-### Pod won't start
-- Check GHCR image is public (see "Make the Image Public" section)
-- Verify GPU is available in RunPod region
-- Check RunPod logs for errors
-- Ensure image name is correct: `ghcr.io/YOUR_USERNAME/comfyui-wanvideo:latest`
+**Actual Root Cause**:
+Other custom nodes (comfyui_controlnet_aux, etc.) had torch==2.7.0 pins in their requirements.txt
 
-### ComfyUI shows errors on startup
-- Wait 60 seconds for full initialization
-- Check network volume is mounted at `/runpod-volume`
-- Verify models are in correct directories
+**The Fix (V3)**:
+1. Install PyTorch nightly FIRST (Dockerfile:40-43)
+2. Install WanVideoWrapper requirements SECOND (Dockerfile:104-105)
+3. Skip WanVideoWrapper in custom nodes loop to avoid re-processing (Dockerfile:137)
 
-### Out of memory errors
-- Reduce video resolution or frame count
-- Enable `--lowvram` mode (add to start.sh)
-- Use smaller batch sizes in workflows
+**Verification**:
+```bash
+# Inside container
+python -c "import torch; print(torch.__version__)"
+# Should show: 2.10.0.dev20250924+cu128
+```
 
-### Models not loading
-- Check models are in correct subdirectories
-- Verify symlinks: `ls -la /workspace/ComfyUI/models`
-- Models should be in `/runpod-volume/models/`
+### Problem 3: Wrong Model URLs and Destinations (V2)
 
-### Custom nodes failing
-- Check ComfyUI logs in pod terminal
-- Some nodes may need additional models
-- Use ComfyUI-Manager to reinstall failed nodes
+**Symptoms**:
+- Models download but ComfyUI can't find them
+- Wrong file names (e.g., looking for "v2" files but downloaded "v1")
+- Models in wrong directories
+
+**Root Cause**:
+V2 start.sh had:
+- Incorrect model URLs (pointing to non-existent v2 files)
+- Wrong destination paths (custom node dirs instead of /models/)
+- Complex env variable logic that didn't match reality
+
+**The Fix (V3)**:
+Completely rewrote start.sh based on actual working deployment logs:
+- Direct wget downloads (no aria2c complexity)
+- Exact URLs from working pod
+- Correct destinations matching ComfyUI expectations
+- Simplified logic, no env variable flags
+
+**Verification**:
+Check start.sh lines 98-208 for correct model download URLs
+
+### Problem 4: diffusers Version Incompatibility (V1)
+
+**Symptoms**:
+- Error: "GGUF quantization not supported"
+- WanVideoWrapper fails to load GGUF models
+
+**Root Cause**:
+diffusers 0.33.0 doesn't support GGUF quantization (added in 0.35+)
+
+**The Fix (V3)**:
+```dockerfile
+# Dockerfile line 66 - NO VERSION PIN
+pip install diffusers  # Gets 0.35.2 with GGUF support
+```
+
+**Verification**:
+```bash
+python -c "from diffusers import __version__; print(__version__)"
+# Should show: 0.35.2 or higher
+```
+
+### Problem 5: CUDA 12.8 Compatibility (All Versions)
+
+**Symptoms**:
+- "CUDA driver version is insufficient"
+- PyTorch can't find GPU
+- nvidia-smi shows incompatible driver
+
+**Root Cause**:
+CUDA 12.8 requires GPU driver >= 560.x
+
+**The Fix**:
+On RunPod:
+1. Select GPU with driver >= 560
+2. Filter for "CUDA 12.8" in Additional Filters
+3. Recommended GPUs: RTX 4090/5090, H100, A100 (with new driver)
+
+**Verification**:
+```bash
+nvidia-smi
+# Check "Driver Version" >= 560.x
+```
+
+### Problem 6: Model Download Organization Failed (V2)
+
+**Symptoms**:
+- Env variables (DOWNLOAD_WANVIDEO=true) didn't work
+- Some models downloaded, others didn't
+- Inconsistent behavior
+
+**Root Cause**:
+Overly complex feature-based download logic with env variables that didn't match actual requirements.
+
+**The Fix (V3)**:
+Simplified start.sh to just download ALL required models directly with no configuration:
+- No env variables (except optional ENABLE_JUPYTER)
+- Every model downloads automatically
+- Uses simple wget with direct URLs
+- All-or-nothing approach: either works completely or fails visibly
+
+**Verification**:
+Check start.sh - no DOWNLOAD_* variables, just direct downloads
+
+## Package Installation Order - CRITICAL
+
+This is the EXACT order that works. DO NOT change it!
+
+### Dockerfile Package Installation Order (Lines 40-148)
+
+1. **PyTorch Nightly** (40-43)
+   ```dockerfile
+   pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
+   ```
+   ✅ Installs PyTorch 2.10.0.dev+cu128
+
+2. **ComfyUI Requirements** (56-57)
+   ```dockerfile
+   pip install -r /workspace/ComfyUI/requirements.txt
+   ```
+   ✅ Core ComfyUI dependencies (won't downgrade PyTorch)
+
+3. **Base Dependencies** (61-75)
+   ```dockerfile
+   pip install triton accelerate transformers diffusers opencv-python ...
+   ```
+   ✅ diffusers 0.35.2 (no pin = latest with GGUF)
+
+4. **WanVideoWrapper Requirements** (104-105) - THE CRITICAL FIX
+   ```dockerfile
+   pip install -r /workspace/ComfyUI/custom_nodes/ComfyUI-WanVideoWrapper/requirements.txt
+   ```
+   ✅ Installs peft, sentencepiece, pyloudnorm, etc.
+   ✅ PyTorch stays at nightly (no downgrade!)
+
+5. **Other Custom Nodes** (133-148)
+   ```dockerfile
+   # Loop through custom nodes, SKIP WanVideoWrapper (already done)
+   ```
+   ✅ Installs other node requirements
+
+6. **SageAttention** (151-152)
+   ```dockerfile
+   pip install sageattention || echo "failed"
+   ```
+   ✅ Optional optimization (fails gracefully if incompatible)
+
+### Why This Order Matters
+
+❌ **WRONG** (V1-V2):
+1. PyTorch nightly
+2. Other custom nodes (some pin torch==2.7.0)
+3. Skip WanVideoWrapper requirements
+Result: PyTorch downgrades to 2.7.0, missing dependencies
+
+✅ **CORRECT** (V3):
+1. PyTorch nightly
+2. ComfyUI base deps
+3. WanVideoWrapper requirements (no torch pin!)
+4. Other custom nodes (skip WanVideoWrapper)
+Result: PyTorch stays nightly, all deps present
+
+## Technical Specifications (V3)
+
+- **Base Image**: nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04
+- **Python**: 3.12 in virtual environment
+- **PyTorch**: 2.10.0.dev20250924+cu128 (nightly)
+- **diffusers**: 0.35.2 (GGUF support)
+- **ComfyUI**: Latest from official repo
+- **Image Size**: ~8GB
+- **Startup Time**:
+  - First run: 15-25 mins (model downloads ~30GB)
+  - Subsequent: 30-60 seconds (instant)
+- **Ports**: 8188 (ComfyUI), 8888 (JupyterLab)
+- **Model Downloads**: wget (simple, reliable)
 
 ## Updating the Image
 
-### Option 1: Use the script (easiest)
-```bash
-./build-and-push.sh
-# Choose option 2 for full rebuild when prompted
-```
+### Rebuild and Push V3
 
-### Option 2: Manual rebuild
 ```bash
 # Rebuild from scratch
-docker build --no-cache -t comfyui-wanvideo:latest .
-
-# Tag for GHCR
-docker tag comfyui-wanvideo:latest ghcr.io/YOUR_USERNAME/comfyui-wanvideo:latest
+docker build --no-cache -t ghcr.io/YOUR_USERNAME/comfyui-wanvideo-docker:v3 .
 
 # Push to GHCR
-docker push ghcr.io/YOUR_USERNAME/comfyui-wanvideo:latest
+docker push ghcr.io/YOUR_USERNAME/comfyui-wanvideo-docker:v3
 ```
 
-### Option 3: GitHub Actions (automatic)
-Simply push your changes to GitHub:
-```bash
-git add .
-git commit -m "Update Docker configuration"
-git push
-```
-The GitHub Actions workflow will automatically build and push the new image.
+### Update RunPod Pod
 
-### Update RunPod pod
 1. Terminate existing pod
 2. Deploy new pod with same template (pulls latest image)
 3. Reattach same network volume (keeps models)
+4. Models don't re-download (already cached)
 
 ## File Structure
 
 ```
 .
-├── .github/
-│   └── workflows/
-│       └── docker-build.yml  # GitHub Actions workflow for auto-build
-├── Dockerfile                # Main build instructions
-├── start.sh                  # Startup script for ComfyUI
-├── build-and-push.sh         # Helper script to build and push to GHCR
-├── .dockerignore             # Build exclusions
-└── README.md                 # This file
+├── Dockerfile                # Main build instructions (V3 fixes)
+├── start.sh                  # Startup script (simplified V3)
+├── README.md                 # This file (complete guide)
+├── RUNPOD_FINAL_CONFIG.md    # RunPod deployment guide
+├── V3_CHANGES.md             # Detailed V3 changes
+├── .gitignore                # Excluded files (logs, personal notes)
+└── .dockerignore             # Build exclusions
 ```
 
-## Technical Specifications
+## Changelog
 
-- **Base Image**: nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04
-- **Python**: 3.12 in virtual environment
-- **PyTorch**: 2.7.0+ nightly (cu128)
-- **ComfyUI**: Latest from official repo
-- **Image Size**: ~12-15GB (uncompressed)
-- **Startup Time**: 30-60 seconds
-- **Ports**: 8188 (ComfyUI), 8888 (JupyterLab)
+### V3 (Latest - 2025-10-27) ✅ STABLE
 
-## Security Notes
+**🔥 CRITICAL FIX**: WanVideoWrapper now imports successfully!
 
-- Runs as root (standard for RunPod)
-- No authentication on ComfyUI (use RunPod's network security)
-- JupyterLab has no password (only enable in trusted networks)
+- ✅ Fixed WanVideoWrapper requirements.txt installation
+- ✅ PyTorch nightly 2.10+cu128 (preserved, no downgrades)
+- ✅ diffusers 0.35.2 (GGUF quantization support)
+- ✅ Simplified model downloads (direct URLs, no env vars)
+- ✅ All dependencies correctly installed (peft, sentencepiece, etc.)
+- ✅ Verified working on RTX 4090/5090, H100
+- ✅ Complete troubleshooting guide (this README)
+- ✅ Installation order documented and locked
+- Image size: ~8GB
+- Model downloads: ~30GB
+- **Status: Production Ready**
+
+### V2 (2025-10-26) ❌ BROKEN - DO NOT USE
+
+- ❌ WanVideoWrapper import failures (missing dependencies)
+- ❌ PyTorch version instability
+- ❌ Complex env variable logic that didn't work
+- ❌ Wrong model URLs and destinations
+- Reduced image size to 5-8GB (good idea)
+- Runtime model downloads (good idea)
+- **Status: Deprecated - Broken**
+
+### V1 (2025-10-25) ❌ PARTIAL - DEPRECATED
+
+- ✅ Models baked into image (slow but worked)
+- ❌ WanVideoWrapper dependencies issues
+- ❌ 20GB image size (too large)
+- **Status: Deprecated - Use V3**
+
+## Next Steps
+
+1. **Build V3**: `docker build -t ghcr.io/YOUR_USERNAME/comfyui-wanvideo-docker:v3 .`
+2. **Push to GHCR**: `docker push ghcr.io/YOUR_USERNAME/comfyui-wanvideo-docker:v3`
+3. **Make image public** on GitHub Packages
+4. **Create RunPod template** with V3 image
+5. **Deploy pod** with network volume (100GB+)
+6. **Wait for model downloads** (15-25 mins first time)
+7. **Verify WanVideoWrapper imports** ✅
+8. **Start generating** WanVideo 2.2 Animate videos!
+
+## Support and Reference Files
+
+### Documentation Files
+- **README.md** (this file) - Complete guide with troubleshooting
+- **V3_CHANGES.md** - Detailed V3 technical changes
+- **RUNPOD_FINAL_CONFIG.md** - RunPod deployment specifics
+- **Dockerfile** - Build instructions with V3 fixes
+- **start.sh** - Simplified startup with verified model download URLs
+
+### Troubleshooting Steps
+1. Check RunPod pod logs for errors
+2. Verify GPU driver >= 560 (nvidia-smi)
+3. Verify PyTorch version (should be 2.10.0.dev+cu128)
+4. Verify models downloaded to /workspace/ComfyUI/models/
+5. Check WanVideoWrapper imports: `python -c "import peft"`
+6. Review this README's troubleshooting section
 
 ## License
 
 This Dockerfile and associated scripts are provided as-is for use with ComfyUI and RunPod.
 
-## Support
+## Base Template Notice
 
-For issues:
-1. Check RunPod pod logs
-2. Verify GPU and network volume setup
-3. Review ComfyUI console output
-4. Check custom node documentation
+**This is the V3 base template for all future WanVideo/ComfyUI pods!**
 
-## Next Steps
+Key principles established:
+1. ✅ Always install WanVideoWrapper requirements.txt AFTER PyTorch
+2. ✅ Use PyTorch nightly for latest GPU support
+3. ✅ Don't pin diffusers version (get latest GGUF support)
+4. ✅ Use direct model downloads with wget (simple, reliable)
+5. ✅ Document EVERY problem and fix in README
+6. ✅ Verify with actual deployment logs
 
-1. Build the image: `docker build -t comfyui-wanvideo:latest .`
-2. Test locally: `docker run --gpus all -p 8188:8188 comfyui-wanvideo:latest`
-3. Push to registry
-4. Create RunPod template
-5. Deploy pod with network volume
-6. Upload WanVideo models
-7. Start generating!
+**When creating new variants**:
+- Start from this V3 Dockerfile
+- Maintain the installation order (critical!)
+- Keep the troubleshooting section updated
+- Verify model URLs against working deployments

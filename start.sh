@@ -1,339 +1,258 @@
 #!/bin/bash
 set -e
 
-echo "======================================"
-echo "ComfyUI WanVideo 2.2 - RunPod Startup"
-echo "======================================"
+echo "================================================"
+echo "ComfyUI WanVideo 2.2 Animate - V3 Startup"
+echo "================================================"
+echo ""
 
-# Function to download models from HuggingFace
-download_from_hf() {
+# ============================================================================
+# MODEL DOWNLOAD PATHS - Verified Working Configuration
+# ============================================================================
+# Based on successful deployment logs
+# All models download directly to ComfyUI's expected locations
+
+MODEL_BASE="/workspace/ComfyUI/models"
+
+# Optional: Enable JupyterLab for debugging
+ENABLE_JUPYTER=${ENABLE_JUPYTER:-false}
+
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+download_if_missing() {
     local url=$1
-    local output_path=$2
-    local filename=$(basename "$output_path")
+    local output_dir=$2
+    local output_file=$3
+    local full_path="$output_dir/$output_file"
 
-    if [ -f "$output_path" ]; then
-        echo "✓ $filename already exists, skipping..."
+    if [ -f "$full_path" ]; then
+        echo "  ✓ $output_file already exists, skipping"
         return 0
     fi
 
-    echo "⬇️  Downloading $filename..."
-    aria2c -x 16 -s 16 -k 1M "$url" -d "$(dirname "$output_path")" -o "$filename"
-    echo "✓ Downloaded $filename"
-}
+    echo "  ⬇️  Downloading $output_file..."
+    mkdir -p "$output_dir"
 
-# Function to download models from CivitAI
-download_from_civitai() {
-    local model_id=$1
-    local output_path=$2
-    local token=$3
-
-    if [ -z "$token" ]; then
-        echo "⚠️  CivitAI token not set, skipping model ID $model_id"
+    if wget -q --show-progress "$url" -O "$full_path"; then
+        echo "  ✅ Downloaded $output_file"
         return 0
-    fi
-
-    echo "⬇️  Downloading CivitAI model $model_id..."
-    civitdl "https://civitai.com/api/download/models/$model_id" \
-        --token "$token" \
-        --output "$output_path"
-}
-
-# Function to download WanVideo 2.2 complete models (transformers + text encoders + VAE)
-download_wanvideo_22_complete() {
-    echo ""
-    echo "📦 Downloading WanVideo 2.2 Complete Package..."
-    local models_dir="/runpod-volume/models/diffusion_models"
-    local text_encoders_dir="/runpod-volume/models/text_encoders"
-    local vae_dir="/runpod-volume/models/vae"
-    mkdir -p "$models_dir" "$text_encoders_dir" "$vae_dir"
-
-    # WanVideo 2.2 Transformer (main model)
-    download_from_hf \
-        "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/wanvideo_v2_2.safetensors" \
-        "$models_dir/wanvideo_v2_2.safetensors"
-
-    # Text Encoder - T5-XXL (required)
-    download_from_hf \
-        "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/t5-v1_1-xxl-encoder-bf16.safetensors" \
-        "$text_encoders_dir/t5-v1_1-xxl-encoder-bf16.safetensors"
-
-    # Text Encoder - CLIP ViT-L
-    download_from_hf \
-        "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/clip-vit-large-patch14.safetensors" \
-        "$text_encoders_dir/clip-vit-large-patch14.safetensors"
-
-    # VAE
-    download_from_hf \
-        "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/wanvideo_vae.safetensors" \
-        "$vae_dir/wanvideo_vae.safetensors"
-
-    echo "✓ WanVideo 2.2 complete package downloaded"
-}
-
-# Function to download WanAnimate models
-download_wananimate_models() {
-    echo ""
-    echo "📦 Downloading WanAnimate Models..."
-    local models_dir="/runpod-volume/models/diffusion_models"
-    mkdir -p "$models_dir"
-
-    # WanAnimate transformer
-    download_from_hf \
-        "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/wananimate.safetensors" \
-        "$models_dir/wananimate.safetensors"
-
-    echo "✓ WanAnimate models download complete"
-}
-
-# Function to download WanVideo 480p native models
-download_480p_models() {
-    echo ""
-    echo "📦 Downloading WanVideo 480p Native Models..."
-    local models_dir="/runpod-volume/models/diffusion_models"
-    mkdir -p "$models_dir"
-
-    # Wan 1.3B T2V 480p
-    download_from_hf \
-        "https://huggingface.co/Kijai/WanVideo-comfyui/resolve/main/wanvideo_t2v_1.3b_480p.safetensors" \
-        "$models_dir/wanvideo_t2v_1.3b_480p.safetensors"
-
-    # Wan 14B T2V/I2V 480p
-    download_from_hf \
-        "https://huggingface.co/Kijai/WanVideo-comfyui/resolve/main/wanvideo_t2v_i2v_14b_480p.safetensors" \
-        "$models_dir/wanvideo_t2v_i2v_14b_480p.safetensors"
-
-    echo "✓ 480p models download complete"
-}
-
-# Function to download WanVideo 720p native models
-download_720p_models() {
-    echo ""
-    echo "📦 Downloading WanVideo 720p Native Models..."
-    local models_dir="/runpod-volume/models/diffusion_models"
-    mkdir -p "$models_dir"
-
-    # Wan 1.3B T2V 720p
-    download_from_hf \
-        "https://huggingface.co/Kijai/WanVideo-comfyui/resolve/main/wanvideo_t2v_1.3b_720p.safetensors" \
-        "$models_dir/wanvideo_t2v_1.3b_720p.safetensors"
-
-    # Wan 14B T2V/I2V 720p
-    download_from_hf \
-        "https://huggingface.co/Kijai/WanVideo-comfyui/resolve/main/wanvideo_t2v_i2v_14b_720p.safetensors" \
-        "$models_dir/wanvideo_t2v_i2v_14b_720p.safetensors"
-
-    echo "✓ 720p models download complete"
-}
-
-# Function to download Wan Fun and SDXL helper models
-download_wan_fun() {
-    echo ""
-    echo "📦 Downloading Wan Fun and SDXL Helper Models..."
-    local models_dir="/runpod-volume/models/diffusion_models"
-    local controlnet_dir="/runpod-volume/models/controlnet"
-    mkdir -p "$models_dir" "$controlnet_dir"
-
-    # Wan Fun 1.3B
-    download_from_hf \
-        "https://huggingface.co/Kijai/WanVideo-comfyui/resolve/main/wanfun_1.3b.safetensors" \
-        "$models_dir/wanfun_1.3b.safetensors"
-
-    # Wan Fun 14B
-    download_from_hf \
-        "https://huggingface.co/Kijai/WanVideo-comfyui/resolve/main/wanfun_14b.safetensors" \
-        "$models_dir/wanfun_14b.safetensors"
-
-    # SDXL ControlNet for helper workflow
-    download_from_hf \
-        "https://huggingface.co/xinsir/controlnet-union-sdxl-1.0/resolve/main/diffusion_pytorch_model_promax.safetensors" \
-        "$controlnet_dir/controlnet-union-sdxl-promax.safetensors"
-
-    echo "✓ Wan Fun models download complete"
-}
-
-# Function to download VACE models
-download_vace_models() {
-    echo ""
-    echo "📦 Downloading Wan VACE Models..."
-    local models_dir="/runpod-volume/models/diffusion_models"
-    mkdir -p "$models_dir"
-
-    # VACE model
-    download_from_hf \
-        "https://huggingface.co/Kijai/WanVideo-comfyui/resolve/main/wanvideo_vace.safetensors" \
-        "$models_dir/wanvideo_vace.safetensors"
-
-    echo "✓ VACE models download complete"
-}
-
-# Function to download CivitAI LoRAs
-download_civitai_loras() {
-    if [ -z "$LORAS_IDS_TO_DOWNLOAD" ]; then
-        return 0
-    fi
-
-    echo ""
-    echo "📦 Downloading CivitAI LoRAs..."
-    local loras_dir="/runpod-volume/models/loras"
-    mkdir -p "$loras_dir"
-
-    IFS=',' read -ra IDS <<< "$LORAS_IDS_TO_DOWNLOAD"
-    for id in "${IDS[@]}"; do
-        id=$(echo "$id" | xargs) # trim whitespace
-        download_from_civitai "$id" "$loras_dir" "$civitai_token"
-    done
-
-    echo "✓ LoRAs download complete"
-}
-
-# Function to download CivitAI Checkpoints
-download_civitai_checkpoints() {
-    if [ -z "$CHECKPOINT_IDS_TO_DOWNLOAD" ]; then
-        return 0
-    fi
-
-    echo ""
-    echo "📦 Downloading CivitAI Checkpoints..."
-    local checkpoints_dir="/runpod-volume/models/diffusion_models"
-    mkdir -p "$checkpoints_dir"
-
-    IFS=',' read -ra IDS <<< "$CHECKPOINT_IDS_TO_DOWNLOAD"
-    for id in "${IDS[@]}"; do
-        id=$(echo "$id" | xargs) # trim whitespace
-        download_from_civitai "$id" "$checkpoints_dir" "$civitai_token"
-    done
-
-    echo "✓ Checkpoints download complete"
-}
-
-# Function to create symlinks if network volume is mounted
-setup_model_symlinks() {
-    if [ -d "/runpod-volume" ]; then
-        echo "RunPod network volume detected at /runpod-volume"
-
-        # Create models directory structure on volume if it doesn't exist
-        mkdir -p /runpod-volume/models/diffusion_models
-        mkdir -p /runpod-volume/models/text_encoders
-        mkdir -p /runpod-volume/models/vae
-        mkdir -p /runpod-volume/models/clip_vision
-        mkdir -p /runpod-volume/models/loras
-        mkdir -p /runpod-volume/models/controlnet
-        mkdir -p /runpod-volume/models/sam2
-        mkdir -p /runpod-volume/models/upscale_models
-        mkdir -p /runpod-volume/models/ipadapter
-        mkdir -p /runpod-volume/input
-        mkdir -p /runpod-volume/output
-        mkdir -p /runpod-volume/workflows
-
-        # Copy pre-downloaded models to volume if they don't exist
-        echo "Syncing pre-downloaded models to network volume..."
-        if [ -d "/workspace/models/clip_vision" ]; then
-            cp -rn /workspace/models/* /runpod-volume/models/ 2>/dev/null || true
-        fi
-
-        # Remove local model directories and create symlinks
-        echo "Creating symlinks to network volume..."
-        rm -rf /workspace/ComfyUI/models
-        ln -sf /runpod-volume/models /workspace/ComfyUI/models
-
-        rm -rf /workspace/ComfyUI/input
-        ln -sf /runpod-volume/input /workspace/ComfyUI/input
-
-        rm -rf /workspace/ComfyUI/output
-        ln -sf /runpod-volume/output /workspace/ComfyUI/output
-
-        echo "Network volume setup complete!"
     else
-        echo "No RunPod network volume detected - using local storage"
-        # Create symlinks to local directories
-        ln -sf /workspace/models /workspace/ComfyUI/models
-        ln -sf /workspace/input /workspace/ComfyUI/input
-        ln -sf /workspace/output /workspace/ComfyUI/output
+        echo "  ❌ Failed to download $output_file"
+        return 1
     fi
 }
 
-# Function to check GPU availability
-check_gpu() {
-    if command -v nvidia-smi &> /dev/null; then
-        echo "GPU Status:"
-        nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
-    else
-        echo "WARNING: nvidia-smi not found - GPU may not be available"
-    fi
-}
+# ============================================================================
+# GPU CHECK
+# ============================================================================
 
-# Function to display environment info
-show_environment() {
-    echo ""
-    echo "Environment Information:"
-    echo "Python: $(python --version)"
-    echo "PyTorch: $(python -c 'import torch; print(torch.__version__)')"
-    echo "CUDA Available: $(python -c 'import torch; print(torch.cuda.is_available())')"
-    if python -c 'import torch; exit(0 if torch.cuda.is_available() else 1)' 2>/dev/null; then
-        echo "CUDA Version: $(python -c 'import torch; print(torch.version.cuda)')"
-        echo "GPU Count: $(python -c 'import torch; print(torch.cuda.device_count())')"
-    fi
-    echo ""
-}
-
-# Setup symlinks
-setup_model_symlinks
-
-# Download models based on environment variables
-if [ "$download_wanvideo_22_complete" = "true" ]; then
-    download_wanvideo_22_complete
+echo "🖥️  GPU Status:"
+if command -v nvidia-smi &> /dev/null; then
+    nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
+else
+    echo "  ⚠️  nvidia-smi not found - GPU may not be available"
 fi
+echo ""
 
-if [ "$download_wananimate" = "true" ]; then
-    download_wananimate_models
+# ============================================================================
+# ENVIRONMENT INFO
+# ============================================================================
+
+echo "🐍 Environment Information:"
+echo "  Python: $(python --version)"
+echo "  PyTorch: $(python -c 'import torch; print(torch.__version__)')"
+echo "  CUDA Available: $(python -c 'import torch; print(torch.cuda.is_available())')"
+
+if python -c 'import torch; exit(0 if torch.cuda.is_available() else 1)' 2>/dev/null; then
+    echo "  CUDA Version: $(python -c 'import torch; print(torch.version.cuda)')"
+    echo "  GPU Count: $(python -c 'import torch; print(torch.cuda.device_count())')"
 fi
+echo ""
 
-if [ "$download_480p_native_models" = "true" ]; then
-    download_480p_models
-fi
+# ============================================================================
+# MODEL DOWNLOADS - Exact Working Configuration
+# ============================================================================
 
-if [ "$download_720p_native_models" = "true" ]; then
-    download_720p_models
-fi
+echo "📦 Downloading WanVideo 2.2 Animate Models..."
+echo "  This will download all required models to the correct locations"
+echo ""
 
-if [ "$download_wan_fun_and_sdxl_helper" = "true" ]; then
-    download_wan_fun
-fi
+# Create all necessary directories
+mkdir -p "$MODEL_BASE/detection"
+mkdir -p "$MODEL_BASE/diffusion_models"
+mkdir -p "$MODEL_BASE/loras"
+mkdir -p "$MODEL_BASE/text_encoders"
+mkdir -p "$MODEL_BASE/vae"
+mkdir -p "$MODEL_BASE/clip_vision"
+mkdir -p "$MODEL_BASE/input"
+mkdir -p "$MODEL_BASE/output"
 
-if [ "$download_vace" = "true" ]; then
-    download_vace_models
-fi
+# ============================================================================
+# Detection Models (for WanAnimate preprocessing)
+# ============================================================================
 
-# Download CivitAI models if requested
-download_civitai_loras
-download_civitai_checkpoints
+echo "📥 Detection Models:"
 
-# Check GPU
-check_gpu
+download_if_missing \
+    "https://huggingface.co/JunkyByte/easy_ViTPose/resolve/main/onnx/wholebody/vitpose-l-wholebody.onnx" \
+    "$MODEL_BASE/detection" \
+    "vitpose-l-wholebody.onnx"
 
-# Show environment
-show_environment
+download_if_missing \
+    "https://huggingface.co/Wan-AI/Wan2.2-Animate-14B/resolve/main/process_checkpoint/det/yolov10m.onnx" \
+    "$MODEL_BASE/detection" \
+    "yolov10m.onnx"
 
-# Change to ComfyUI directory
-cd /workspace/ComfyUI
+echo ""
 
-# Optional: Start JupyterLab in background if requested
+# ============================================================================
+# Diffusion Models (Main models)
+# ============================================================================
+
+echo "📥 Diffusion Models:"
+
+# WanVideo 2.2 Animate 14B (FP8 quantized - 17GB)
+download_if_missing \
+    "https://huggingface.co/Kijai/WanVideo_comfy_fp8_scaled/resolve/main/Wan22Animate/Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors" \
+    "$MODEL_BASE/diffusion_models" \
+    "Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors"
+
+# WanVideo 2.1 T2V 14B (FP8 quantized - alternative model)
+download_if_missing \
+    "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_t2v_14B_fp8_scaled.safetensors" \
+    "$MODEL_BASE/diffusion_models" \
+    "wan2.1_t2v_14B_fp8_scaled.safetensors"
+
+echo ""
+
+# ============================================================================
+# LoRAs (Enhancement models)
+# ============================================================================
+
+echo "📥 LoRA Models:"
+
+download_if_missing \
+    "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/LoRAs/Wan22_relight/WanAnimate_relight_lora_fp16.safetensors" \
+    "$MODEL_BASE/loras" \
+    "WanAnimate_relight_lora_fp16.safetensors"
+
+download_if_missing \
+    "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank256_bf16.safetensors" \
+    "$MODEL_BASE/loras" \
+    "lightx2v_I2V_14B_480p_cfg_step_distill_rank256_bf16.safetensors"
+
+download_if_missing \
+    "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Lightx2v/lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank64_bf16.safetensors" \
+    "$MODEL_BASE/loras" \
+    "lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank64_bf16.safetensors"
+
+download_if_missing \
+    "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/loras/wan_alpha_2.1_rgba_lora.safetensors" \
+    "$MODEL_BASE/loras" \
+    "wan_alpha_2.1_rgba_lora.safetensors"
+
+echo ""
+
+# ============================================================================
+# Text Encoders
+# ============================================================================
+
+echo "📥 Text Encoders:"
+
+download_if_missing \
+    "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/umt5-xxl-enc-bf16.safetensors" \
+    "$MODEL_BASE/text_encoders" \
+    "umt5-xxl-enc-bf16.safetensors"
+
+download_if_missing \
+    "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors" \
+    "$MODEL_BASE/text_encoders" \
+    "umt5_xxl_fp8_e4m3fn_scaled.safetensors"
+
+echo ""
+
+# ============================================================================
+# VAE Models
+# ============================================================================
+
+echo "📥 VAE Models:"
+
+download_if_missing \
+    "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1_VAE_bf16.safetensors" \
+    "$MODEL_BASE/vae" \
+    "Wan2_1_VAE_bf16.safetensors"
+
+download_if_missing \
+    "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_alpha_2.1_vae_rgb_channel.safetensors" \
+    "$MODEL_BASE/vae" \
+    "wan_alpha_2.1_vae_rgb_channel.safetensors"
+
+download_if_missing \
+    "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_alpha_2.1_vae_alpha_channel.safetensors" \
+    "$MODEL_BASE/vae" \
+    "wan_alpha_2.1_vae_alpha_channel.safetensors"
+
+echo ""
+
+# ============================================================================
+# CLIP Vision
+# ============================================================================
+
+echo "📥 CLIP Vision:"
+
+download_if_missing \
+    "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors" \
+    "$MODEL_BASE/clip_vision" \
+    "clip_vision_h.safetensors"
+
+echo ""
+echo "✅ All models downloaded successfully!"
+echo ""
+
+# ============================================================================
+# OPTIONAL: START JUPYTERLAB
+# ============================================================================
+
 if [ "$ENABLE_JUPYTER" = "true" ]; then
-    echo "Starting JupyterLab on port 8888..."
+    echo "🔬 Starting JupyterLab on port 8888..."
     jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root \
         --ServerApp.token='' --ServerApp.password='' \
         --ServerApp.allow_origin='*' \
         --ServerApp.base_url=/ &
-    echo "JupyterLab started!"
+    echo "  ✓ JupyterLab started!"
+    echo ""
 fi
 
-# Start ComfyUI
-echo ""
-echo "Starting ComfyUI on port 8188..."
-echo "Access at: http://localhost:8188"
+# ============================================================================
+# APPLY COMPATIBILITY ENVIRONMENT VARIABLES
+# ============================================================================
+
+echo "🔧 Applying compatibility environment variables..."
+export TORCHAUDIO_USE_BACKEND_DISPATCH=1
+export TORCHAUDIO_USE_SOX=0
+export XFORMERS_MORE_DETAILS=1
+export XFORMERS_DISABLED=0
+export FLASH_ATTENTION_FORCE_BUILD=0
+export FLASH_ATTENTION_SKIP_CUDA_BUILD=1
+export CUDA_VISIBLE_DEVICES=0
+export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+export TORCH_CUDNN_V8_API_ENABLED=1
+echo "  ✓ Environment configured"
 echo ""
 
-# Start with proper arguments for RunPod
+# ============================================================================
+# START COMFYUI
+# ============================================================================
+
+echo "================================================"
+echo "🚀 Starting ComfyUI..."
+echo "================================================"
+echo "  Access at: http://localhost:8188"
+echo ""
+
+cd /workspace/ComfyUI
 exec python main.py \
     --listen 0.0.0.0 \
     --port 8188 \

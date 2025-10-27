@@ -1,0 +1,19 @@
+# Log files (personal/sensitive)
+logs*.txt
+*logs*.txt
+
+# Temporary files
+*.backup
+*.bak
+
+# Personal notes
+COMPATIBILITY_FIXES.md
+COMPREHENSIVE_FIXES.md
+fix_*.sh
+fix_*.py
+
+# Docker temp
+docker/
+
+# Claude settings
+.claude/settings.local.json

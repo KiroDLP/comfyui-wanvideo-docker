@@ -1,4 +1,5 @@
-# Multi-stage build for ComfyUI with WanVideo 2.2 support
+# Multi-stage build for ComfyUI with WanVideo 2.2 Animate support
+# V3: Fixed WanVideoWrapper compatibility, Hearmean-style env variables
 # Optimized for RunPod deployment
 
 # =============================================================================
@@ -12,13 +13,13 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_PREFER_BINARY=1 \
     CMAKE_BUILD_PARALLEL_LEVEL=8
 
-# Install system dependencies and setup Python (matching reference implementation)
+# Install system dependencies and setup Python (matching working reference)
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && \
     apt-get install -y --no-install-recommends \
         python3.12 python3.12-venv python3.12-dev \
         python3-pip \
-        curl ffmpeg git aria2 git-lfs wget \
+        curl ffmpeg git aria2 git-lfs wget ninja-build \
         libgl1 libglib2.0-0 build-essential && \
     \
     ln -sf /usr/bin/python3.12 /usr/bin/python && \
@@ -36,14 +37,14 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --upgrade pip setuptools wheel packaging
 
-# Install PyTorch nightly with CUDA 12.8 support (matching reference)
+# V3 FIX: Install PyTorch nightly with CUDA 12.8 support (proven working)
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --pre torch torchvision torchaudio \
     --index-url https://download.pytorch.org/whl/nightly/cu128
 
 # Set CUDA environment variables
 ENV CUDA_HOME=/usr/local/cuda \
-    TORCH_CUDA_ARCH_LIST="7.5 8.0 8.6 8.9 9.0+PTX"
+    TORCH_CUDA_ARCH_LIST="7.0 7.5 8.0 8.6 8.9 9.0+PTX"
 
 # Create workspace directory
 WORKDIR /workspace
@@ -56,18 +57,22 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r /workspace/ComfyUI/requirements.txt
 
 # Install additional Python packages for WanVideo and utilities
+# Following Hearmean's proven approach - let dependencies resolve naturally
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install \
-    xformers \
+    triton \
     accelerate \
     transformers \
+    diffusers \
     opencv-python \
+    opencv-contrib-python \
     pillow \
     numpy \
     scipy \
     pyyaml \
     jupyterlab \
-    comfy-cli
+    comfy-cli \
+    gdown
 
 # =============================================================================
 # Stage 2: Final - Custom Nodes, Models, Configuration
@@ -91,8 +96,16 @@ RUN mkdir -p /workspace/models/diffusion_models \
 WORKDIR /workspace/ComfyUI/custom_nodes
 
 # Core WanVideo nodes (using kijai's official wrapper)
-RUN git clone https://github.com/kijai/ComfyUI-WanVideoWrapper.git && \
-    git clone https://github.com/logtd/ComfyUI-WanAnimatePreprocess.git
+RUN git clone https://github.com/kijai/ComfyUI-WanVideoWrapper.git
+
+# V3 FIX: Install WanVideoWrapper requirements AFTER PyTorch nightly
+# The requirements.txt does NOT pin torch versions - only requires torch>=2.0.0 via accelerate
+# Since PyTorch nightly 2.10+ is already installed, pip won't downgrade
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r /workspace/ComfyUI/custom_nodes/ComfyUI-WanVideoWrapper/requirements.txt
+
+# WanAnimate preprocessing nodes
+RUN git clone https://github.com/kijai/ComfyUI-WanAnimatePreprocess.git
 
 # Video and image processing nodes
 RUN git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git && \
@@ -111,51 +124,38 @@ RUN git clone https://github.com/ltdrdata/ComfyUI-Manager.git && \
     git clone https://github.com/ssitu/ComfyUI_UltimateSDUpscale.git && \
     git clone https://github.com/chflame163/ComfyUI_LayerStyle.git
 
-# Install custom node dependencies automatically
+# Configure ComfyUI Manager security settings to allow all channels
+RUN mkdir -p /workspace/ComfyUI/custom_nodes/ComfyUI-Manager && \
+    echo '{"security_level": "relaxed", "allow_install_from_any_channel": true}' > /workspace/ComfyUI/custom_nodes/ComfyUI-Manager/config.json
+
+# Install custom node dependencies automatically (with better error handling)
+# V3 FIX: WanVideoWrapper requirements already installed above, skip in loop to avoid redundancy
 RUN for dir in /workspace/ComfyUI/custom_nodes/*; do \
     if [ -d "$dir" ]; then \
-        echo "Processing $dir"; \
-        if [ -f "$dir/requirements.txt" ]; then \
-            pip install -r "$dir/requirements.txt" || echo "Failed to install requirements for $dir"; \
+        repo_name=$(basename "$dir"); \
+        echo "Processing $repo_name"; \
+        if [ "$repo_name" != "ComfyUI-WanVideoWrapper" ]; then \
+            if [ -f "$dir/requirements.txt" ]; then \
+                pip install -r "$dir/requirements.txt" --no-cache-dir || echo "Failed to install requirements for $repo_name"; \
+            fi; \
+        else \
+            echo "WanVideoWrapper requirements already installed above"; \
         fi; \
         if [ -f "$dir/install.py" ]; then \
-            cd "$dir" && python install.py || echo "Failed to run install.py for $dir"; \
+            cd "$dir" && python install.py || echo "Failed to run install.py for $repo_name"; \
         fi; \
     fi; \
     done
 
-# Install SageAttention and Triton (Linux-specific optimization)
+# Install SageAttention (Linux-specific optimization)
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install sageattention || echo "SageAttention install failed (expected on some platforms)" && \
-    pip install triton || echo "Triton install failed (expected on some platforms)"
+    pip install sageattention || echo "SageAttention install failed (expected on some platforms)"
 
-# Download essential models using aria2c (parallel downloads)
-WORKDIR /workspace/models
+# V3 OPTIMIZATION: All models now download on first run via start.sh
+# This reduces image size from ~20GB to ~5-8GB
+# Uses Hearmean-style feature-based environment variables
 
-# CLIP Vision models
-RUN aria2c -x16 -s16 -k1M \
-    https://huggingface.co/h94/IP-Adapter/resolve/main/models/image_encoder/model.safetensors \
-    -d /workspace/models/clip_vision -o CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors
-
-RUN aria2c -x16 -s16 -k1M \
-    https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/image_encoder/model.safetensors \
-    -d /workspace/models/clip_vision -o CLIP-ViT-bigG-14-laion2B-39B-b160k.safetensors
-
-# IP-Adapter models
-RUN aria2c -x16 -s16 -k1M \
-    https://huggingface.co/h94/IP-Adapter/resolve/main/models/ip-adapter_sd15.safetensors \
-    -d /workspace/models/ipadapter -o ip-adapter_sd15.safetensors
-
-RUN aria2c -x16 -s16 -k1M \
-    https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter_sdxl_vit-h.safetensors \
-    -d /workspace/models/ipadapter -o ip-adapter_sdxl_vit-h.safetensors
-
-# Upscale models
-RUN aria2c -x16 -s16 -k1M \
-    https://huggingface.co/gemasai/4x_LSDIR/resolve/main/4xLSDIR.pth \
-    -d /workspace/models/upscale_models -o 4xLSDIR.pth
-
-# Copy startup script
+# V3: Copy startup script only (no runtime downgrades)
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
 
