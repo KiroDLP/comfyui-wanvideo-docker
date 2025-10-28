@@ -166,9 +166,9 @@ docker run --gpus all \
 docker run --gpus all -p 8188:8188 \
   -v /path/to/models:/workspace/ComfyUI/models \
   -e DOWNLOAD_WANVIDEO_COMPLETE=false \
-  -e DOWNLOAD_DIFFUSION_MODELS=true \
-  -e DOWNLOAD_TEXT_ENCODERS=true \
-  -e DOWNLOAD_VAE=true \
+  -e DOWNLOAD_WANVIDEO_DIFFUSION_MODELS=true \
+  -e DOWNLOAD_WANVIDEO_TEXT_ENCODERS=true \
+  -e DOWNLOAD_WANVIDEO_VAE=true \
   ghcr.io/YOUR_USERNAME/comfyui-wanvideo-docker:v3
 ```
 
@@ -176,8 +176,8 @@ docker run --gpus all -p 8188:8188 \
 ```bash
 docker run --gpus all -p 8188:8188 \
   -v /path/to/models:/workspace/ComfyUI/models \
-  -e DOWNLOAD_LORAS=false \
-  -e DOWNLOAD_DETECTION_MODELS=false \
+  -e DOWNLOAD_WANVIDEO_LORAS=false \
+  -e DOWNLOAD_WANVIDEO_DETECTION_MODELS=false \
   ghcr.io/YOUR_USERNAME/comfyui-wanvideo-docker:v3
 ```
 
@@ -241,20 +241,20 @@ After pushing, make your package public:
 
 3. Environment Variables (V3 - Configurable Model Downloads):
    ```
-   # Download Control (all default to true)
-   DOWNLOAD_WANVIDEO_COMPLETE=true      # Master switch - enables all downloads
-   DOWNLOAD_DETECTION_MODELS=true       # ViTPose + YOLO (~1.2GB)
-   DOWNLOAD_DIFFUSION_MODELS=true       # WanVideo models (~17GB)
-   DOWNLOAD_LORAS=true                  # Enhancement LoRAs (~5GB)
-   DOWNLOAD_TEXT_ENCODERS=true          # UMT5-XXL (~3GB)
-   DOWNLOAD_VAE=true                    # VAE decoders (~1GB)
-   DOWNLOAD_CLIP_VISION=true            # CLIP models (~1GB)
+   # WanVideo 2.2 Download Control (all default to true)
+   DOWNLOAD_WANVIDEO_COMPLETE=true              # Master switch - enables all WanVideo downloads
+   DOWNLOAD_WANVIDEO_DETECTION_MODELS=true      # ViTPose + YOLO (~1.2GB)
+   DOWNLOAD_WANVIDEO_DIFFUSION_MODELS=true      # WanVideo models (~17GB)
+   DOWNLOAD_WANVIDEO_LORAS=true                 # Enhancement LoRAs (~5GB)
+   DOWNLOAD_WANVIDEO_TEXT_ENCODERS=true         # UMT5-XXL (~3GB)
+   DOWNLOAD_WANVIDEO_VAE=true                   # VAE decoders (~1GB)
+   DOWNLOAD_WANVIDEO_CLIP_VISION=true           # CLIP models (~1GB)
 
    # Optional features
-   ENABLE_JUPYTER=false                 # JupyterLab on port 8888
+   ENABLE_JUPYTER=false                         # JupyterLab on port 8888
    ```
 
-   **Note**: Setting `DOWNLOAD_WANVIDEO_COMPLETE=true` (default) enables all model downloads. Set individual flags to `false` to skip specific model types.
+   **Note**: Setting `DOWNLOAD_WANVIDEO_COMPLETE=true` (default) enables all WanVideo model downloads. Set individual flags to `false` to skip specific model types. This naming structure allows for future extensibility (e.g., `DOWNLOAD_X_COMPLETE` for other model systems).
 
 4. Docker Command: Leave empty (uses /start.sh from image)
 
