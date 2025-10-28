@@ -13,14 +13,8 @@ echo ""
 
 MODEL_BASE="/workspace/ComfyUI/models"
 
-# WanVideo 2.2 Download control flags
-DOWNLOAD_WANVIDEO_COMPLETE=${DOWNLOAD_WANVIDEO_COMPLETE:-true}           # Master switch (default: true)
-DOWNLOAD_WANVIDEO_DETECTION_MODELS=${DOWNLOAD_WANVIDEO_DETECTION_MODELS:-true}   # ViTPose + YOLO
-DOWNLOAD_WANVIDEO_DIFFUSION_MODELS=${DOWNLOAD_WANVIDEO_DIFFUSION_MODELS:-true}   # Main WanVideo models
-DOWNLOAD_WANVIDEO_LORAS=${DOWNLOAD_WANVIDEO_LORAS:-true}                          # LoRA enhancement models
-DOWNLOAD_WANVIDEO_TEXT_ENCODERS=${DOWNLOAD_WANVIDEO_TEXT_ENCODERS:-true}          # UMT5-XXL encoders
-DOWNLOAD_WANVIDEO_VAE=${DOWNLOAD_WANVIDEO_VAE:-true}                              # VAE decoders
-DOWNLOAD_WANVIDEO_CLIP_VISION=${DOWNLOAD_WANVIDEO_CLIP_VISION:-true}              # CLIP vision models
+# WanVideo 2.2 Download control
+DOWNLOAD_WANVIDEO_COMPLETE=${DOWNLOAD_WANVIDEO_COMPLETE:-true}  # Download all WanVideo models (default: true)
 
 # Optional features
 ENABLE_JUPYTER=${ENABLE_JUPYTER:-false}
@@ -83,25 +77,8 @@ echo ""
 # MODEL DOWNLOADS - Conditional Based on Environment Variables
 # ============================================================================
 
-# Override individual flags if DOWNLOAD_WANVIDEO_COMPLETE=true
-if [ "$DOWNLOAD_WANVIDEO_COMPLETE" = "true" ]; then
-    DOWNLOAD_WANVIDEO_DETECTION_MODELS=true
-    DOWNLOAD_WANVIDEO_DIFFUSION_MODELS=true
-    DOWNLOAD_WANVIDEO_LORAS=true
-    DOWNLOAD_WANVIDEO_TEXT_ENCODERS=true
-    DOWNLOAD_WANVIDEO_VAE=true
-    DOWNLOAD_WANVIDEO_CLIP_VISION=true
-fi
-
 echo "📦 WanVideo 2.2 Animate Model Downloads"
-echo "  Configuration:"
-echo "    Complete Package: $DOWNLOAD_WANVIDEO_COMPLETE"
-echo "    Detection Models: $DOWNLOAD_WANVIDEO_DETECTION_MODELS"
-echo "    Diffusion Models: $DOWNLOAD_WANVIDEO_DIFFUSION_MODELS"
-echo "    LoRAs: $DOWNLOAD_WANVIDEO_LORAS"
-echo "    Text Encoders: $DOWNLOAD_WANVIDEO_TEXT_ENCODERS"
-echo "    VAE: $DOWNLOAD_WANVIDEO_VAE"
-echo "    CLIP Vision: $DOWNLOAD_WANVIDEO_CLIP_VISION"
+echo "  WanVideo Complete: $DOWNLOAD_WANVIDEO_COMPLETE"
 echo ""
 
 # Create all necessary directories
@@ -118,7 +95,7 @@ mkdir -p "$MODEL_BASE/output"
 # Detection Models (for WanAnimate preprocessing)
 # ============================================================================
 
-if [ "$DOWNLOAD_WANVIDEO_DETECTION_MODELS" = "true" ]; then
+if [ "$DOWNLOAD_WANVIDEO_COMPLETE" = "true" ]; then
     echo "📥 Detection Models:"
 
     download_if_missing \
@@ -138,7 +115,7 @@ fi
 # Diffusion Models (Main models)
 # ============================================================================
 
-if [ "$DOWNLOAD_WANVIDEO_DIFFUSION_MODELS" = "true" ]; then
+if [ "$DOWNLOAD_WANVIDEO_COMPLETE" = "true" ]; then
     echo "📥 Diffusion Models:"
 
     # WanVideo 2.2 Animate 14B (FP8 quantized - 17GB)
@@ -160,7 +137,7 @@ fi
 # LoRAs (Enhancement models)
 # ============================================================================
 
-if [ "$DOWNLOAD_WANVIDEO_LORAS" = "true" ]; then
+if [ "$DOWNLOAD_WANVIDEO_COMPLETE" = "true" ]; then
     echo "📥 LoRA Models:"
 
     download_if_missing \
@@ -190,7 +167,7 @@ fi
 # Text Encoders
 # ============================================================================
 
-if [ "$DOWNLOAD_WANVIDEO_TEXT_ENCODERS" = "true" ]; then
+if [ "$DOWNLOAD_WANVIDEO_COMPLETE" = "true" ]; then
     echo "📥 Text Encoders:"
 
     download_if_missing \
@@ -210,7 +187,7 @@ fi
 # VAE Models
 # ============================================================================
 
-if [ "$DOWNLOAD_WANVIDEO_VAE" = "true" ]; then
+if [ "$DOWNLOAD_WANVIDEO_COMPLETE" = "true" ]; then
     echo "📥 VAE Models:"
 
     download_if_missing \
@@ -235,7 +212,7 @@ fi
 # CLIP Vision
 # ============================================================================
 
-if [ "$DOWNLOAD_WANVIDEO_CLIP_VISION" = "true" ]; then
+if [ "$DOWNLOAD_WANVIDEO_COMPLETE" = "true" ]; then
     echo "📥 CLIP Vision:"
 
     download_if_missing \

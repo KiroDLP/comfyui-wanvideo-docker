@@ -161,31 +161,19 @@ docker run --gpus all \
 
 ### Selective Model Downloads (V3)
 
-**Download only core models (minimal setup)**:
-```bash
-docker run --gpus all -p 8188:8188 \
-  -v /path/to/models:/workspace/ComfyUI/models \
-  -e DOWNLOAD_WANVIDEO_COMPLETE=false \
-  -e DOWNLOAD_WANVIDEO_DIFFUSION_MODELS=true \
-  -e DOWNLOAD_WANVIDEO_TEXT_ENCODERS=true \
-  -e DOWNLOAD_WANVIDEO_VAE=true \
-  ghcr.io/YOUR_USERNAME/comfyui-wanvideo-docker:v3
-```
-
-**Skip LoRAs and detection models**:
-```bash
-docker run --gpus all -p 8188:8188 \
-  -v /path/to/models:/workspace/ComfyUI/models \
-  -e DOWNLOAD_WANVIDEO_LORAS=false \
-  -e DOWNLOAD_WANVIDEO_DETECTION_MODELS=false \
-  ghcr.io/YOUR_USERNAME/comfyui-wanvideo-docker:v3
-```
-
-**Download everything (default behavior)**:
+**Download all WanVideo models (default behavior)**:
 ```bash
 docker run --gpus all -p 8188:8188 \
   -v /path/to/models:/workspace/ComfyUI/models \
   -e DOWNLOAD_WANVIDEO_COMPLETE=true \
+  ghcr.io/YOUR_USERNAME/comfyui-wanvideo-docker:v3
+```
+
+**Skip WanVideo models (use pre-downloaded models from volume)**:
+```bash
+docker run --gpus all -p 8188:8188 \
+  -v /path/to/models:/workspace/ComfyUI/models \
+  -e DOWNLOAD_WANVIDEO_COMPLETE=false \
   ghcr.io/YOUR_USERNAME/comfyui-wanvideo-docker:v3
 ```
 
@@ -241,20 +229,15 @@ After pushing, make your package public:
 
 3. Environment Variables (V3 - Configurable Model Downloads):
    ```
-   # WanVideo 2.2 Download Control (all default to true)
-   DOWNLOAD_WANVIDEO_COMPLETE=true              # Master switch - enables all WanVideo downloads
-   DOWNLOAD_WANVIDEO_DETECTION_MODELS=true      # ViTPose + YOLO (~1.2GB)
-   DOWNLOAD_WANVIDEO_DIFFUSION_MODELS=true      # WanVideo models (~17GB)
-   DOWNLOAD_WANVIDEO_LORAS=true                 # Enhancement LoRAs (~5GB)
-   DOWNLOAD_WANVIDEO_TEXT_ENCODERS=true         # UMT5-XXL (~3GB)
-   DOWNLOAD_WANVIDEO_VAE=true                   # VAE decoders (~1GB)
-   DOWNLOAD_WANVIDEO_CLIP_VISION=true           # CLIP models (~1GB)
+   # WanVideo 2.2 Download Control
+   DOWNLOAD_WANVIDEO_COMPLETE=true              # Download all WanVideo models (default: true)
+                                                # Includes: Detection, Diffusion, LoRAs, Text Encoders, VAE, CLIP (~30GB total)
 
    # Optional features
    ENABLE_JUPYTER=false                         # JupyterLab on port 8888
    ```
 
-   **Note**: Setting `DOWNLOAD_WANVIDEO_COMPLETE=true` (default) enables all WanVideo model downloads. Set individual flags to `false` to skip specific model types. This naming structure allows for future extensibility (e.g., `DOWNLOAD_X_COMPLETE` for other model systems).
+   **Note**: Set `DOWNLOAD_WANVIDEO_COMPLETE=false` to skip all WanVideo model downloads. This naming structure allows for future extensibility (e.g., `DOWNLOAD_FLUX_COMPLETE` for other model systems).
 
 4. Docker Command: Leave empty (uses /start.sh from image)
 
